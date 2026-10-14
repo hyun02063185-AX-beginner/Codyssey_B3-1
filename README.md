@@ -1,14 +1,14 @@
 # B3-1 · AWS 기술용어사전 배포
 
-상태: **설계·빌드 검증 완료 / AWS 생성·접속·정리 미검증**. 이 문서는 성공 증빙을 대신하지 않는다.
+상태: **AWS 배포 및 외부 접속 검증 완료**. 동료 평가 기간에는 서버와 관련 리소스를 보존하고, 평가 종료 뒤 정리할 예정이다.
 
 - 기준선: `main`, `5ada699c1c462d957295c3e5d1b44567a9cc565b`
 - 평가 자료 저장소: `hyun02063185-AX-beginner/Codyssey_B3-1`
 - 배포 소스 저장소: https://github.com/hyun02063185-AX-beginner/codyssey-mission-tech-glossary
 - 이 저장소에는 평가 자료와 배포 설정만 관리한다. 용어사전 기능·학습 콘텐츠는 별도 요청 전까지 반영하지 않는다.
 - 기존 GitHub Pages는 유지. 기능·콘텐츠·Mission Learning 추가는 동결.
-- 리전: 서울 `ap-northeast-2`. 대상: Building Things 계정/프로젝트.
-- Management Account 및 Identity Delegated Admin은 변경하지 않는다.
+- 대상 계정: Building Things `345471468876`, 리전: 서울 `ap-northeast-2`.
+- 최종 B3-1 리소스는 모두 Building Things 계정에 생성했다. 관리 계정에서 빈 VPC를 한 번 잘못 만들었으나 즉시 삭제했으며, 관리 계정의 리소스 ID는 기록하지 않는다.
 
 ## 빌드 확인
 
@@ -16,24 +16,25 @@
 Vite `base: './'`, React `HashRouter` 사용. AWS에서는 `http://<PUBLIC_IP>/#/terms` 형태로 접근한다.
 큰 JS 청크 경고는 기존 상태로 기록하며 이번 실습에서 기능 최적화를 하지 않는다.
 
-## 설계
+## 실제 배포 상태와 리소스
 
-[아키텍처 초안](docs/architecture.png). 리소스 Name 접두사는 `b3-1-`, 가능하면 `Mission=B3-1` 태그 적용.
+[아키텍처 초안](docs/architecture.png). 최종 리소스의 Name 접두사는 `b3-1-`이다.
 
-| 항목 | 계획 | 실제 ID/확인 |
+| 항목 | 실제 구성 | ID/검증 |
 |---|---|---|
-| VPC | 10.0.0.0/16 | 미생성 |
-| Public Subnet | 10.0.1.0/24, AZ 1개 | 미생성 |
-| IGW | VPC에 연결 | 미생성 |
-| Route Table | local + 0.0.0.0/0 → IGW, Subnet 명시 연결 | 미생성 |
-| EC2 | Amazon Linux 2023, x86_64 소형 1대, 자동 Public IPv4 | 유형·가격 확인 후 결정 |
-| EBS | gp3 최소 부팅 용량, 종료 시 삭제 | 미생성 |
-| SG inbound | TCP 80: 0.0.0.0/0 / TCP 22: 작업자 현재 공인 IP/32 | 미생성 |
-| SG outbound | 초기 기본 허용, 패키지 설치·DNS 등 용도 기록 | 미생성 |
-| Nginx | TCP 80, /var/www/b3-1, dist 내용 제공 | 미설치 |
+| VPC | `b3-1-vpc`, `10.0.0.0/16` | `vpc-0ff58eb92cae855b5` |
+| Public Subnet | `b3-1-public-subnet`, `10.0.1.0/24` | `subnet-0754b3a7e047d243b` |
+| Internet Gateway | VPC에 연결한 `b3-1-igw` | `igw-0a76b6e7ce5f7dbba` |
+| Public Route Table | `b3-1-public-rt`, `0.0.0.0/0 → IGW`, Subnet 명시 연결 | `rtb-0c43593adab690b32` |
+| Security Group | `b3-1-web-sg`: HTTP TCP 80은 `0.0.0.0/0`, 생성 당시 SSH TCP 22는 `121.135.181.46/32`, outbound all traffic `0.0.0.0/0` | `sg-09cbf49fbacde0808` |
+| Key pair | 이름 `b3-1-ec2-key`; 개인키 파일·경로·내용은 문서와 Git에 기록하지 않음 | 생성 확인 |
+| EC2 | `b3-1-web`, Amazon Linux 2023 x86_64, `t3.micro`; private IP `10.0.1.149`, 자동 할당 public IPv4 `13.125.211.95`; IAM instance profile 없음, IMDSv2 Required | `i-0d3d200089acf1e25` |
+| EBS | gp3 8 GiB, 종료 시 삭제 활성화 | `vol-0be705be47a8b5285` |
+| Nginx | 설치·enable 완료, `/var/www/b3-1`에서 기준선의 `dist` 정적 파일 제공 | `nginx -t` 성공, localhost HTTP 200 |
 
-Public Subnet이라는 분류는 IGW 직접 경로에 따른다. EC2의 실제 인터넷 통신에는 Public IP, SG, NACL, 서비스 listen 상태도 필요하다. 기본 NACL 유지.
-SSH /32는 실제 SSH를 실행하는 PC의 공인 IP를 사용한다. 이 채팅 실행 환경의 IP를 대신 넣지 않는다. 교육장과 집 이동 시 갱신한다.
+Public Subnet은 IGW 직접 경로와 해당 Subnet의 명시 연결로 구성했다. EC2의 실제 인터넷 통신에는 Public IP, SG, NACL, 서비스 listen 상태도 필요하며 기본 NACL을 유지했다.
+
+자동 할당 Public IPv4를 사용하므로 인스턴스를 stop/start 또는 terminate하면 현재 IP가 변경되거나 해제될 수 있다. 동료 평가의 검증 전에는 현재 인스턴스를 유지하며, URL 변경 시 이 문서와 증빙을 함께 갱신한다.
 
 ## 비용 선행 조건
 
@@ -89,19 +90,15 @@ curl -I http://localhost
 
 설정은 AL2023의 Nginx 기본 설정을 교체하는 전용 실습 서버용이다. 서버에서 npm 설치/빌드하지 않는다.
 
-## 실제 성공 증빙 — 모두 미확인
+## 실제 검증과 동료 평가 URL
 
-- [ ] 예산·크레딧·대상 계정 확인 (개인/결제정보는 제출 화면에서 가림)
-- [ ] VPC/Subnet/IGW/Route Table 연결 화면과 리소스 ID
-- [ ] SG 80 공개 및 SSH /32, EC2 Public IP·상태·IAM 근거
-- [ ] `nginx -t` 성공, `systemctl is-active nginx` active
-- [ ] EC2 내부 `curl -I http://localhost` → HTTP 200
-- [ ] 외부 PC `curl -I http://<PUBLIC_IP>/` → HTTP 200
-- [ ] 외부 브라우저 `http://<PUBLIC_IP>/#/terms` 실제 화면·검색·미션 이동·새로고침
-- [ ] 실제 문제 1건 기록, 아키텍처를 실제 구성으로 갱신
-- [ ] cleanup 체크리스트와 잔존 리소스 확인
+- [x] 배포 소스 기준선에서 `npm run build` 실행 후 `dist` 생성
+- [x] EC2 내부에서 `nginx -t` 성공 및 `curl -I http://localhost` → HTTP 200
+- [x] 외부 브라우저에서 기술용어사전 화면 확인: http://13.125.211.95/#/terms
+- [x] VPC, Subnet, IGW, Route Table 명시 연결, SG, EC2, EBS 실구성 기록
+- [x] 실제 배포 중 발생한 조직 리전 제한 및 콘솔 표시 문제 해결 기록: [문제 해결 기록](docs/troubleshooting.md)
 
-현재 접속 URL/Public IP: **아직 없음**. 정리 후에는 접속 불가와 검증 당시 시각·IP를 구분하여 기록한다.
+동료 평가 시 위 URL에서 기술용어사전 화면을 확인한다. 개인키, AWS 결제수단, 주소, 전화번호, MFA 정보와 민감한 콘솔 화면은 증빙 및 Git에 포함하지 않는다. 평가용 캡처 목록과 가림 기준은 [evidence 안내](docs/evidence/README.md)를 따른다.
 
 ## 공식 참고
 
@@ -116,4 +113,6 @@ curl -I http://localhost
 - [아키텍처](docs/architecture.png)
 - [문제 해결 기록](docs/troubleshooting.md)
 - [정리 체크리스트](docs/cleanup-checklist.md)
+- [배포 작업 기록](docs/deployment-log-2026-10-14.md)
+- [동료 평가용 증빙 안내](docs/evidence/README.md)
 - [빌드 로그](docs/evidence/build.log)
