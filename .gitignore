@@ -1,0 +1,10 @@
+*.pem
+*.key
+*.ppk
+*.p12
+*.pfx
+.aws/
+.env
+.env.*
+node_modules/
+dist/
