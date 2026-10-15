@@ -57,6 +57,8 @@ Public Subnet은 IGW 직접 경로와 해당 Subnet의 명시 연결로 구성�
 예산 → VPC → Subnet → IGW 연결 → Route Table/기본 경로/명시 연결 → SG → Key pair/EC2 → Nginx → dist 업로드 → 검증 → 증빙 → 정리.
 EC2 생성 시 공개 IPv4 활성화, EBS 종료 시 삭제, IMDSv2 필수, 불필요한 역할·추가 볼륨 없음 확인.
 
+현재는 웹 소스의 `main`을 푸시해도 AWS의 파일이 자동 갱신되지 않는다. [재배포 절차와 향후 자동화 설계](docs/deployment-update-and-automation.md)에 현재의 `dist` 전송 흐름, 수동 승인 배포 제안, 필요한 IAM·SSM·S3 설정과 검증 순서를 구분해 기록했다. 자동화 설정은 아직 적용하지 않았다.
+
 Amazon Linux 2023 서버에서:
 
 ```sh
@@ -111,6 +113,7 @@ curl -I http://localhost
 ## 제출 문서
 
 - [아키텍처](docs/architecture.png)
+- [재배포 절차와 자동화 설계](docs/deployment-update-and-automation.md)
 - [문제 해결 기록](docs/troubleshooting.md)
 - [정리 체크리스트](docs/cleanup-checklist.md)
 - [배포 작업 기록](docs/deployment-log-2026-10-14.md)
