@@ -2,7 +2,9 @@
 
 상태: **AWS 배포 및 외부 접속 검증 완료**. 동료 평가 기간에는 서버와 관련 리소스를 보존하고, 평가 종료 뒤 정리할 예정이다.
 
-- 기준선: `main`, `5ada699c1c462d957295c3e5d1b44567a9cc565b`
+전체 평가항목과 설명 답안, 확인 근거 및 미완료 항목은 [동료 평가 가이드](docs/peer-evaluation-guide.md)에서 확인한다. 2026-10-24 재배포와 IAM 조회 결과도 이 가이드에 구분해 기록했다.
+
+- 최초 배포 기준선: `main`, `5ada699c1c462d957295c3e5d1b44567a9cc565b`
 - 평가 자료 저장소: `hyun02063185-AX-beginner/Codyssey_B3-1`
 - 배포 소스 저장소: https://github.com/hyun02063185-AX-beginner/codyssey-mission-tech-glossary
 - 이 저장소에는 평가 자료와 배포 설정만 관리한다. 용어사전 기능·학습 콘텐츠는 별도 요청 전까지 반영하지 않는다.
@@ -30,7 +32,7 @@ Vite `base: './'`, React `HashRouter` 사용. AWS에서는 `http://<PUBLIC_IP>/#
 | Key pair | 이름 `b3-1-ec2-key`; 개인키 파일·경로·내용은 문서와 Git에 기록하지 않음 | 생성 확인 |
 | EC2 | `b3-1-web`, Amazon Linux 2023 x86_64, `t3.micro`; private IP `10.0.1.149`, 자동 할당 public IPv4 `13.125.211.95`; IAM instance profile 없음, IMDSv2 Required | `i-0d3d200089acf1e25` |
 | EBS | gp3 8 GiB, 종료 시 삭제 활성화 | `vol-0be705be47a8b5285` |
-| Nginx | 설치·enable 완료, `/var/www/b3-1`에서 기준선의 `dist` 정적 파일 제공 | `nginx -t` 성공, localhost HTTP 200 |
+| Nginx | 설치·enable 완료, `/var/www/b3-1`에서 빌드된 `dist` 정적 파일 제공 | `nginx -t` 성공, localhost HTTP 200 |
 
 Public Subnet은 IGW 직접 경로와 해당 Subnet의 명시 연결로 구성했다. EC2의 실제 인터넷 통신에는 Public IP, SG, NACL, 서비스 listen 상태도 필요하며 기본 NACL을 유지했다.
 
@@ -41,7 +43,7 @@ Public Subnet은 IGW 직접 경로와 해당 Subnet의 명시 연결로 구성�
 1. Building Things의 대상 계정과 결제 범위를 확인한다. 크레딧 잔액·만료일은 콘솔에서 재확인한다.
 2. 제안: 월 USD 5 비용 예산, 실제 USD 1/3/5 알림. 크레딧을 제외한 사용 비용도 감지하도록 비용 집계 설정을 확인한다. 수신 이메일은 사용자가 지정한다.
 3. 알림 저장과 수신 주소를 확인한 뒤 리소스를 생성한다. 조직 결제 권한이 없으면 중단하고 가능한 결제 관리 범위를 확인한다.
-4. 예산은 자동 지출 차단 장치가 아니며 알림은 지연될 수 있다. 실습 직후 종료·삭제한다.
+4. 예산은 자동 지출 차단 장치가 아니며 알림은 지연될 수 있다. 현재는 평가를 위해 보존하며, 정리 시점에 체크리스트를 실행하고 잔존 리소스를 확인한다.
 5. EC2, Public IPv4, EBS 비용을 확인한다. NAT Gateway, ELB, RDS, EIP, Snapshot은 만들지 않는다.
 
 ## IAM 최소권한
@@ -49,8 +51,8 @@ Public Subnet은 IGW 직접 경로와 해당 Subnet의 명시 연결로 구성�
 - Builder ID MFA는 AWS 리소스 작업 권한과 구분한다. 대상 계정의 현재 역할/권한을 먼저 확인한다.
 - root나 장기 Access key를 일상 작업용으로 만들지 않는다. 임시 역할 세션을 사용한다.
 - EC2 런타임은 정적 파일만 제공하므로 IAM instance profile 불필요. AWS API 자격 증명을 서버에 두지 않는다. IMDSv2 required.
-- 배포 작업자 권한은 서울 리전의 필요한 EC2/VPC 조회·생성·태깅·연결·삭제 작업으로 제한한다. RunInstances는 AMI·Subnet·SG·EBS 등 종속 리소스 권한도 필요하다.
-- 실제 IAM 정책/역할과 권한 근거는 배포 후 기록한다. 아직 정책을 적용하거나 최소권한을 검증하지 않았다. AWS 관리형 AdministratorAccess를 최소권한 증빙으로 표기하지 않는다.
+- 최소권한 설계 목표: 배포 작업자 권한을 서울 리전의 필요한 EC2/VPC 조회·생성·태깅·연결·삭제 작업으로 제한한다. RunInstances는 AMI·Subnet·SG·EBS 등 종속 리소스 권한도 필요하다.
+- 2026-10-24 사용자 실행 결과: `AccountFullAccessRole`에 `AdministratorAccess`가 연결되어 있고, 인라인 정책과 Permissions Boundary는 없었다. 최소권한 전용 역할·정책은 아직 적용하거나 검증하지 않았다. AWS 관리형 AdministratorAccess를 최소권한 증빙으로 표기하지 않는다.
 
 ## 실행 순서
 
@@ -112,6 +114,7 @@ curl -I http://localhost
 
 ## 제출 문서
 
+- [동료 평가 전체 항목·대응 답안·확인 상태](docs/peer-evaluation-guide.md)
 - [아키텍처](docs/architecture.png)
 - [재배포 절차와 자동화 설계](docs/deployment-update-and-automation.md)
 - [문제 해결 기록](docs/troubleshooting.md)
