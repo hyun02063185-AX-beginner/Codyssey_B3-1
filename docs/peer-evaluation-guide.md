@@ -1,13 +1,14 @@
 # B3-1 동료 평가 가이드
 
-작성 기준일: **2026-10-24 KST**. 사용자가 전달한 전체 평가항목과 실습 기록을 대응시킨 설명 자료다. 평가기관의 공식 판정이나 전체 통과 선언은 아니다.
+최종 업데이트일 **2026-11-16 KST**. 사용자가 전달한 전체 평가항목과 실습 기록을 대응시킨 설명 자료다. 평가기관의 공식 판정이나 전체 통과 선언은 아니다.
 
 ## 읽는 방법과 현재 상태
 
 - **실습 확인**: 기존 배포 기록 또는 사용자가 실행해 공유한 결과로 확인했다. 이번 문서 작성 과정에서 AWS 콘솔·SSH·외부 사이트를 새로 점검한 것은 아니다. 현재 상태는 평가 당일 다시 확인한다.
 - **설명 답안**: 실제 구성을 근거로 원리와 판단 기준을 설명한다. 답안을 준비했다는 사실이 평가 통과를 뜻하지는 않는다.
 - **대응 설계**: 아직 일어나지 않은 장애·확장 상황에 대한 제안이다. DB·ALB·두 번째 EC2를 실제 생성한 것으로 읽지 않는다.
-- **미완료**: 리소스 정리를 실행하지 않았고, 최소권한 전용 IAM 역할·정책도 적용하지 않았다. 이 문서를 추가하면서 완료 체크를 하지 않는다.
+- **IAM 운영 점검**. 제한된 역할로 전환해 EC2 조회 성공과 중지 권한 거부를 확인했다. [IAM 검증 기록](#iam-validation-2026-11-16)
+- **리소스 정리**. 동료 평가용 환경을 보존 중이며 정리 작업은 평가 종료 뒤에 진행한다.
 
 평가의 외부 접속 검증은 **A: 브라우저 접속**을 선택했다. `GET /health` 방식은 사용하지 않았다. EC2 내부의 `curl -I`는 HEAD 요청에 대한 보조 확인이며, 외부 브라우저 검증이나 `GET /health` 구현을 대신하지 않는다.
 
@@ -23,11 +24,11 @@
 | B3 | 외부 검증 방식 선택·구성 | A 선택 이유 설명 | [검증 선택](#b3) |
 | B4 | 리소스 추적·정리 기준 | 이름·ID·체크리스트 사용 | [추적 기준](#b4) |
 | B5 | IGW 기본 경로 필요성 | 원리 설명 | [기본 경로](#b5) |
-| B6 | SG와 IAM·최소권한 | 원리 설명, IAM 권한 축소는 미적용 | [책임 범위](#b6) |
+| B6 | SG와 IAM·최소권한 | 원리 설명과 제한 역할 적용·검증 | [책임 범위](#b6) |
 | B7 | SSH·DB 전체 공개 위험·대안 | SSH 실제 구성 + DB 대응 설계 | [포트 공개](#b7) |
 | B8 | 가설 → 검증·근거 활용 | 실제 SCP 오류 사례 | [트러블슈팅](#b8) |
 | B9 | 외부 접속 장애 점검 순서 | 대응 절차 | [장애 점검](#b9) |
-| B10 | IAM 부족 시 최소 범위 찾기 | 실제 SCP 사례 + 대응 절차 | [권한 진단](#b10) |
+| B10 | IAM 부족 시 최소 범위 찾기 | 실제 SCP 사례와 제한 역할 거부 확인 | [권한 진단](#b10) |
 | B11 | EC2 2대 확장·ALB | 대응 설계, 미구축 | [확장 설계](#b11) |
 | B12 | 예상하지 못한 비용 추적·정리 | 대응 절차, 상세 원인 미확정 | [비용 추적](#b12) |
 
@@ -47,7 +48,8 @@ Building Things 계정 `345471468876`, 서울 `ap-northeast-2`에 구성했다.
 | EBS | `vol-0be705be47a8b5285`, gp3 8 GiB, 종료 시 삭제 활성화 |
 | 웹 서버 | Nginx, TCP 80, `/var/www/b3-1`의 빌드된 정적 파일 제공 |
 | EC2 IAM 역할 | instance profile 없음, IMDSv2 Required |
-| 관리 작업 역할 | 사용자 조회 결과 `AccountFullAccessRole`에 `AdministratorAccess` 연결; 인라인 정책 없음, Permissions Boundary 없음 |
+| 기존 관리 역할 | 2026-10-24 조회 결과 `AccountFullAccessRole`에 `AdministratorAccess` 연결, 인라인 정책과 Permissions Boundary는 없음 |
+| 운영 점검 역할 | `b3-1-operator-role`로 전환해 서울 EC2 조회 성공과 중지 권한 거부 확인 |
 
 기존 근거: [최초 배포 기록](deployment-log-2026-10-14.md), [실제 문제 해결](troubleshooting.md), [빌드 로그](evidence/build.log), [정리 체크리스트](cleanup-checklist.md), [증빙 캡처 안내](evidence/README.md), [재배포·자동화 설계](deployment-update-and-automation.md).
 
@@ -62,6 +64,22 @@ Building Things 계정 `345471468876`, 서울 `ap-northeast-2`에 구성했다.
 사용자는 이어서 외부 브라우저의 업데이트 반영을 확인했다. Nginx의 `types_hash` 경고는 있었지만 설정 검증 자체는 성공했다. 이 절은 채팅에 공유한 실행 결과를 옮긴 기록이며, 별도의 원본 터미널 로그·외부 화면 캡처를 새로 생성한 것은 아니다.
 
 IAM 조회도 사용자가 공유한 결과를 근거로 한다. `aws sts get-caller-identity`로 위 계정과 `AccountFullAccessRole` 임시 역할 세션을 확인했고, `list-attached-role-policies`, `list-role-policies`, `get-role`로 연결 정책·인라인 정책·Permissions Boundary를 확인했다. 권한 변경은 실행하지 않았다.
+
+<a id="iam-validation-2026-11-16"></a>
+### 2026-11-16 IAM 역할 검증
+
+대상은 Building Things 계정(`345471468876`)의 서울 리전(`ap-northeast-2`)이다. 사용자 CloudShell 출력으로 다음 결과를 확인했다.
+
+| 확인 | 실행 결과 |
+|---|---|
+| 역할 생성 응답 | `arn:aws:iam::345471468876:role/b3-1-operator-role` |
+| STS 신원 확인 | `arn:aws:sts::345471468876:assumed-role/b3-1-operator-role/b3-1-check` |
+| 실제 허용 작업 | `ec2:DescribeInstances`가 `i-0d3d200089acf1e25`의 상태를 `running`으로 반환 |
+| 변경 권한 점검 | 같은 역할의 `ec2:StopInstances --dry-run`은 `UnauthorizedOperation`을 반환했다. AWS는 해당 작업을 허용하는 자격 증명 기반 정책이 없다고 응답했다. |
+
+새 역할의 신뢰 정책에는 `arn:aws:iam::345471468876:role/managed/AccountFullAccessRole`을 지정했다. 운영 점검 정책 `B31SeoulNetworkInspection`의 설정 범위는 서울 리전의 `DescribeInstances`, `DescribeVpcs`, `DescribeSubnets`, `DescribeInternetGateways`, `DescribeRouteTables`, `DescribeSecurityGroups`다. 실제 호출 증빙은 EC2 조회 및 중지 권한 점검까지다. VPC 관련 API 실행과 생성·수정·삭제 권한은 검증 범위 밖이다.
+
+`--dry-run`은 권한만 점검한다. 제출용 IAM 캡처는 역할의 권한 탭과 CloudShell의 역할 ARN·조회 결과·거부 사유를 담고, 인코딩된 오류 세부 정보는 가린다. [AWS EC2 DryRun 동작](https://docs.aws.amazon.com/ec2/latest/devguide/Query-Requests.html)
 
 ## A. 실행 결과 평가항목 전체
 
@@ -155,9 +173,9 @@ Public Subnet은 IGW로 직접 가는 경로가 있는 Subnet이다. 그 안의 
 
 > SG는 EC2 네트워크 인터페이스를 오가는 통신을 출발지·프로토콜·포트 기준으로 제어합니다. IAM은 AWS에서 누가 어떤 리소스에 어떤 작업을 할 수 있는지 관리합니다. 웹 80번 접속을 허용하는 것과 EC2를 생성·삭제할 권한을 주는 것은 서로 다른 문제입니다.
 >
-> 필요한 범위만 허용하면 실수나 자격 증명 유출 때 영향을 줄일 수 있습니다. 이번에는 SSH 출발지를 제한했고 서버에 불필요한 AWS 역할을 붙이지 않았습니다. 다만 관리 작업 역할에는 AdministratorAccess가 연결되어 있어서 IAM 최소권한 적용을 완료했다고 말할 수는 없습니다.
+> 필요한 범위만 허용하면 실수나 자격 증명 유출 때 영향을 줄일 수 있습니다. 보안 그룹에서는 SSH 출발지를 제한했습니다. AWS 운영 점검에는 제한된 `b3-1-operator-role`을 사용해 EC2 상태를 조회했고, 중지 권한은 거부되는 것을 확인했습니다.
 
-SSH 개인키는 Linux 접속 인증 수단이며, IAM 관리 작업 권한과 구분한다. 관리 역할의 권한 축소 작업은 미실행 상태다.
+SSH 개인키는 Linux 사용자 접속을 인증한다. IAM 역할은 AWS API 호출을 인증하고 그 세션의 AWS 작업 권한을 결정한다.
 
 <a id="b7"></a>
 ### B7. SSH(22) 또는 DB 포트를 0.0.0.0/0로 열면 안 되는 이유와 대안을 설명할 수 있는가?
@@ -223,7 +241,7 @@ sudo tail -n 50 /var/log/nginx/error.log
 <a id="b10"></a>
 ### B10. IAM 권한이 부족해 작업이 실패했다면, “권한을 무작정 올리지 않고” 어떤 방식으로 필요한 최소 범위를 찾아갈지 설명할 수 있는가?
 
-**실제 SCP 사례 + 향후 대응 절차. 최소권한 전용 역할 적용은 미완료.**
+**실제 SCP 사례와 제한 역할의 권한 거부 확인.**
 
 > 먼저 현재 계정과 역할을 확인하고, 오류에서 거부된 작업, 대상 리소스, 리전과 조건을 찾겠습니다. 허용 권한이 빠진 것인지, SCP나 다른 정책의 명시적 거부인지 구분하겠습니다.
 >
@@ -231,7 +249,9 @@ sudo tail -n 50 /var/log/nginx/error.log
 >
 > 이번 서울 문제는 역할에 관리자 권한이 있어도 SCP에 막힐 수 있다는 사례입니다. 조직 정책의 서울 허용 여부를 확인해 필요한 범위만 수정했습니다.
 
-현재 신원 확인에는 `aws sts get-caller-identity`를 사용했다. 오류 진단에서는 역할의 연결 정책·인라인 정책, Permissions Boundary, SCP 등 적용 정책을 확인한다. 리소스별 제한을 지원하지 않는 조회 작업 등은 `Resource: "*"`가 필요할 수 있으므로, 모든 작업이 특정 ARN 하나로 제한된다고 가정하지 않는다. 지원되는 경우 리전·태그 등 조건도 검토한다.
+제한 역할 검증에서는 `aws sts get-caller-identity`로 신원을 확인했다. 이어서 EC2 조회가 성공했고, 중지 권한은 `--dry-run`에서 자격 증명 기반 정책의 허용 누락으로 거부됐다. 서울 리전 SCP의 명시적 거부는 B8의 기존 사례에 해당한다.
+
+오류 진단에서는 역할의 연결 정책·인라인 정책, Permissions Boundary, SCP 등 적용 정책을 확인한다. 리소스별 제한을 지원하지 않는 조회 작업 등은 `Resource: "*"`가 필요할 수 있으므로, 모든 작업이 특정 ARN 하나로 제한된다고 가정하지 않는다. 지원되는 경우 리전·태그 등 조건도 검토한다.
 
 참고: [Access denied 진단](https://docs.aws.amazon.com/IAM/latest/UserGuide/troubleshoot_access-denied.html). 조직 정책 변경은 해당 정책을 관리할 권한과 운영상 승인 범위 안에서 수행한다.
 
