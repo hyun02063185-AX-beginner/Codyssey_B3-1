@@ -2,7 +2,7 @@
 
 상태: **AWS 배포 및 외부 접속 검증 완료**. 동료 평가 기간에는 서버와 관련 리소스를 보존하고, 평가 종료 뒤 정리할 예정이다.
 
-전체 평가항목과 설명 답안, 확인 근거 및 미완료 항목은 [동료 평가 가이드](docs/peer-evaluation-guide.md)에서 확인한다. 2026-10-24 재배포와 IAM 조회 결과도 이 가이드에 구분해 기록했다.
+전체 평가항목과 설명 답안, 확인 근거 및 미완료 항목은 [동료 평가 가이드](docs/peer-evaluation-guide.md)에서 확인한다. 재배포 결과와 제한된 IAM 역할로 EC2를 조회한 결과도 이 가이드에 기록했다.
 
 - 최초 배포 기준선: `main`, `5ada699c1c462d957295c3e5d1b44567a9cc565b`
 - 평가 자료 저장소: `hyun02063185-AX-beginner/Codyssey_B3-1`
@@ -51,8 +51,9 @@ Public Subnet은 IGW 직접 경로와 해당 Subnet의 명시 연결로 구성�
 - Builder ID MFA는 AWS 리소스 작업 권한과 구분한다. 대상 계정의 현재 역할/권한을 먼저 확인한다.
 - root나 장기 Access key를 일상 작업용으로 만들지 않는다. 임시 역할 세션을 사용한다.
 - EC2 런타임은 정적 파일만 제공하므로 IAM instance profile 불필요. AWS API 자격 증명을 서버에 두지 않는다. IMDSv2 required.
-- 최소권한 설계 목표: 배포 작업자 권한을 서울 리전의 필요한 EC2/VPC 조회·생성·태깅·연결·삭제 작업으로 제한한다. RunInstances는 AMI·Subnet·SG·EBS 등 종속 리소스 권한도 필요하다.
-- 2026-10-24 사용자 실행 결과: `AccountFullAccessRole`에 `AdministratorAccess`가 연결되어 있고, 인라인 정책과 Permissions Boundary는 없었다. 최소권한 전용 역할·정책은 아직 적용하거나 검증하지 않았다. AWS 관리형 AdministratorAccess를 최소권한 증빙으로 표기하지 않는다.
+- 2026-10-24에는 기존 관리 역할 `AccountFullAccessRole`의 `AdministratorAccess` 연결 상태를 확인했다.
+- 2026-11-16에는 별도의 `b3-1-operator-role`로 전환해 서울 리전의 `b3-1-web`을 조회했다. `DescribeInstances`는 `running`을 반환했고, 같은 세션에서 `StopInstances --dry-run`은 `UnauthorizedOperation`을 반환했다.
+- 검증 범위는 기존 환경의 운영 점검이다. `B31SeoulNetworkInspection`의 적용에 사용한 정책과 실제로 검증한 API는 [IAM 검증 기록](docs/peer-evaluation-guide.md#iam-validation-2026-11-16)에 정리했다.
 
 ## 실행 순서
 
