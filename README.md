@@ -4,6 +4,8 @@
 
 전체 평가항목과 설명 답안, 확인 근거 및 미완료 항목은 [동료 평가 가이드](docs/peer-evaluation-guide.md)에서 확인한다. 재배포 결과와 제한된 IAM 역할로 EC2를 조회한 결과도 이 가이드에 기록했다.
 
+로그인 ID와 AWS 계정, IAM 사용자와 역할이 헷갈렸던 과정은 [AWS 신원·계정·IAM 학습 기록](docs/aws-identity-and-iam.md)에 정리했다. 실제 Building Things 접근 흐름, 역할 전환과 Builder ID 기반 팀원 초대 관계도로 용어를 연결한다.
+
 - 최초 배포 기준선: `main`, `5ada699c1c462d957295c3e5d1b44567a9cc565b`
 - 평가 자료 저장소: `hyun02063185-AX-beginner/Codyssey_B3-1`
 - 배포 소스 저장소: https://github.com/hyun02063185-AX-beginner/codyssey-mission-tech-glossary
@@ -116,6 +118,7 @@ curl -I http://localhost
 ## 제출 문서
 
 - [동료 평가 전체 항목·대응 답안·확인 상태](docs/peer-evaluation-guide.md)
+- [AWS 신원·계정·IAM 학습 기록](docs/aws-identity-and-iam.md)
 - [아키텍처](docs/architecture.png)
 - [재배포 절차와 자동화 설계](docs/deployment-update-and-automation.md)
 - [문제 해결 기록](docs/troubleshooting.md)
